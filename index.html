@@ -177,6 +177,39 @@
       100% { transform: translateX(0); }
     }
     .shake { animation: shake .6s ease; }
+
+    /* Mobile floating hearts and tap ripple */
+    .heart {
+      position: fixed;
+      pointer-events: none;
+      font-size: 20px;
+      transform: translate(-50%, -50%) scale(1);
+      animation: floatUp 900ms cubic-bezier(.22,.9,.32,1) forwards;
+      will-change: transform, opacity;
+      z-index: 10000;
+    }
+    @keyframes floatUp {
+      0% { transform: translate(-50%, -50%) scale(1); opacity: 1; }
+      100% { transform: translate(-50%, -180%) scale(1.4); opacity: 0; }
+    }
+
+    .ripple {
+      position: absolute;
+      border-radius: 999px;
+      background: rgba(255,255,255,0.6);
+      transform: translate(-50%, -50%) scale(0);
+      pointer-events: none;
+      width: 10px; height: 10px;
+      animation: rippleAnim 420ms ease-out forwards;
+      z-index: 1000;
+    }
+    @keyframes rippleAnim { to { transform: translate(-50%, -50%) scale(28); opacity: 0; } }
+
+    /* subtle card pulse on mobile for extra charm */
+    @media (max-width: 520px) {
+      .card { animation: cardPulse 6s ease-in-out infinite; }
+      @keyframes cardPulse { 0%,100% { transform: translateZ(0); } 50% { transform: translateY(-4px); } }
+    }
   </style>
 </head>
 
@@ -337,6 +370,39 @@
           if (d < 140) moveNo(e.clientX, e.clientY);
         });
       });
+    }
+
+    // Mobile: spawn floating heart at touch point and vibrate
+    function spawnHeart(x, y) {
+      const el = document.createElement('div');
+      el.className = 'heart';
+      el.textContent = '💖';
+      el.style.left = x + 'px';
+      el.style.top = y + 'px';
+      document.body.appendChild(el);
+      setTimeout(() => el.remove(), 950);
+    }
+
+    function createRipple(e, target) {
+      const rect = target.getBoundingClientRect();
+      const r = document.createElement('span');
+      r.className = 'ripple';
+      r.style.left = (e.clientX - rect.left) + 'px';
+      r.style.top = (e.clientY - rect.top) + 'px';
+      target.appendChild(r);
+      setTimeout(() => r.remove(), 500);
+    }
+
+    if (hasCoarsePointer) {
+      zone.addEventListener('pointerdown', e => {
+        spawnHeart(e.clientX, e.clientY);
+        if (navigator.vibrate) navigator.vibrate(20);
+        // ripple on buttons
+        if (e.target && (e.target === yesBtn || e.target === noBtn || e.target.closest('button'))) {
+          const btn = e.target.closest('button') || e.target;
+          createRipple(e, btn);
+        }
+      }, { passive: true });
     }
 
     // Block click but allow keyboard activation when focused (for accessibility)
