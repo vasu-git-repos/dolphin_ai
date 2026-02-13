@@ -5,8 +5,12 @@
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
   <title>Will you be my Valentine?</title>
 
-  <!-- Confetti library -->
-  <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.9.3/dist/confetti.browser.min.js"></script>
+  <!-- Performance: preconnect heavy origins -->
+  <link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin>
+  <link rel="preconnect" href="https://media4.giphy.com" crossorigin>
+  <!-- Confetti library (deferred) -->
+  <script defer src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.9.3/dist/confetti.browser.min.js" crossorigin="anonymous"></script>
+  <meta name="theme-color" content="#ffd6e7">
 
   <style>
     :root {
@@ -84,6 +88,7 @@
       user-select: none;
       -webkit-tap-highlight-color: transparent;
       transition: transform .12s ease, background .12s ease;
+      will-change: left, top, transform;
     }
 
     #yesBtn {
@@ -126,15 +131,21 @@
       from { transform: scale(.96); opacity: 0; }
       to { transform: scale(1); opacity: 1; }
     }
+
+    /* Respect user's reduced motion preference */
+    @media (prefers-reduced-motion: reduce) {
+      * { animation: none !important; transition: none !important; }
+      #confettiCanvas { display: none !important; }
+    }
   </style>
 </head>
 
 <body>
-  <canvas id="confettiCanvas"></canvas>
+  <canvas id="confettiCanvas" aria-hidden="true"></canvas>
 
   <main class="card">
-    <!-- ANIMAL WITH HEART -->
-    <svg class="art" viewBox="0 0 320 240" xmlns="http://www.w3.org/2000/svg">
+    <!-- ANIMAL WITH HEART (decorative) -->
+    <svg class="art" viewBox="0 0 320 240" xmlns="http://www.w3.org/2000/svg" aria-hidden="true" role="img">
       <defs>
         <linearGradient id="fur" x1="0" x2="1">
           <stop offset="0" stop-color="#f7c7a1"/>
@@ -171,15 +182,15 @@
             fill="#ff7aa2"/>
     </svg>
 
-    <h1>Simran, will you be my valentine?</h1>
+    <h1 id="pageTitle">Simran, will you be my valentine?</h1>
 
-    <section class="button-zone" id="zone">
-      <button id="yesBtn">Yes</button>
-      <button id="noBtn">No</button>
+    <section class="button-zone" id="zone" aria-labelledby="pageTitle">
+      <button id="yesBtn" aria-label="Accept" type="button">Yes</button>
+      <button id="noBtn" aria-label="Decline" type="button">No</button>
     </section>
 
     <!-- HINT -->
-    <div class="hint" id="hint">“No” seems a bit shy 😈</div>
+    <div class="hint" id="hint" role="status" aria-live="polite">“No” seems a bit shy 😈</div>
 
     <section class="result" id="result">
       <h2>YAY! 🎉</h2>
@@ -187,6 +198,7 @@
         class="fireworks"
         src="https://media4.giphy.com/media/v1.Y2lkPTc5MGI3NjExeTZ1NGFoZWF5Z3c2ajgxNXR0MWdkZHE0dTFpcHlibmNuYW9vMjhvOSZlcD12MV9pbnRlcm5hbF9naWZfYnlfaWQmY3Q9Zw/8QbwUh40Hl96yMgvOx/giphy.gif"
         alt="Fireworks"
+        width="380" height="214" loading="lazy"
       />
     </section>
   </main>
@@ -213,33 +225,22 @@
     window.addEventListener("resize", resizeConfettiCanvas);
     window.addEventListener("orientationchange", () => setTimeout(resizeConfettiCanvas, 150));
 
-    const confettiInstance = confetti.create(confettiCanvas, {
-      resize: false,
-      useWorker: true
-    });
+    const confettiInstance = (window.confetti && confetti.create)
+      ? confetti.create(confettiCanvas, { resize: false, useWorker: true })
+      : null;
 
     function fullScreenConfetti() {
-      const end = Date.now() + 1600;
+      if (!confettiInstance) return;
+      if (window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
 
+      const end = Date.now() + 1600;
       (function frame() {
-        confettiInstance({
-          particleCount: 12,
-          spread: 90,
-          startVelocity: 45,
-          ticks: 180,
-          origin: { x: Math.random(), y: Math.random() * 0.3 }
-        });
+        confettiInstance({ particleCount: 12, spread: 90, startVelocity: 45, ticks: 180, origin: { x: Math.random(), y: Math.random() * 0.3 } });
         if (Date.now() < end) requestAnimationFrame(frame);
       })();
 
       setTimeout(() => {
-        confettiInstance({
-          particleCount: 300,
-          spread: 140,
-          startVelocity: 60,
-          ticks: 220,
-          origin: { x: 0.5, y: 0.55 }
-        });
+        confettiInstance({ particleCount: 300, spread: 140, startVelocity: 60, ticks: 220, origin: { x: 0.5, y: 0.55 } });
       }, 300);
     }
 
@@ -248,12 +249,11 @@
     function growYes() {
       yesScale = Math.min(2.2, yesScale + 0.1);
       yesBtn.style.transform = `translateY(-50%) scale(${yesScale})`;
+      yesBtn.setAttribute('aria-pressed', 'true');
     }
 
     /* ---------- NO BUTTON RUNS AWAY ---------- */
-    function clamp(n, min, max) {
-      return Math.max(min, Math.min(max, n));
-    }
+    function clamp(n, min, max) { return Math.max(min, Math.min(max, n)); }
 
     function moveNo(px, py) {
       const z = zone.getBoundingClientRect();
@@ -262,8 +262,7 @@
       let dx = (b.left + b.width / 2) - px;
       let dy = (b.top + b.height / 2) - py;
       let mag = Math.hypot(dx, dy) || 1;
-      dx /= mag;
-      dy /= mag;
+      dx /= mag; dy /= mag;
 
       let newLeft = (b.left - z.left) + dx * 150;
       let newTop  = (b.top - z.top) + dy * 150;
@@ -271,32 +270,59 @@
       newLeft = clamp(newLeft, 0, z.width - b.width);
       newTop  = clamp(newTop, 0, z.height - b.height);
 
-      noBtn.style.left = newLeft + "px";
-      noBtn.style.top = newTop + "px";
-      noBtn.style.transform = "none";
+      // Throttle DOM writes via rAF (set left/top once per frame)
+      if (noBtn._raf) cancelAnimationFrame(noBtn._raf);
+      noBtn._raf = requestAnimationFrame(() => {
+        noBtn.style.left = newLeft + "px";
+        noBtn.style.top = newTop + "px";
+        noBtn.style.transform = "none";
+        noBtn._raf = null;
+      });
 
       growYes();
     }
 
-    zone.addEventListener("pointermove", e => {
-      const b = noBtn.getBoundingClientRect();
-      const d = Math.hypot(
-        (b.left + b.width / 2) - e.clientX,
-        (b.top + b.height / 2) - e.clientY
-      );
-      if (d < 140) moveNo(e.clientX, e.clientY);
-    });
+    // Only enable evasive pointer behavior on fine pointer devices (mouse)
+    const hasFinePointer = window.matchMedia && window.matchMedia('(pointer: fine)').matches;
+    if (hasFinePointer) {
+      let pmRaf = null;
+      zone.addEventListener('pointermove', e => {
+        if (noBtn === document.activeElement) return; // don't move while keyboard-focused
+        if (pmRaf) return; // throttle to one rAF per frame
+        pmRaf = requestAnimationFrame(() => {
+          pmRaf = null;
+          const b = noBtn.getBoundingClientRect();
+          const d = Math.hypot((b.left + b.width / 2) - e.clientX, (b.top + b.height / 2) - e.clientY);
+          if (d < 140) moveNo(e.clientX, e.clientY);
+        });
+      });
+    }
 
-    noBtn.addEventListener("click", e => e.preventDefault());
+    // Block click but allow keyboard activation when focused (for accessibility)
+    noBtn.addEventListener('click', e => { e.preventDefault(); noBtn.setAttribute('aria-pressed', 'false'); });
+    noBtn.addEventListener('keydown', e => {
+      if (e.key === 'Enter' || e.key === ' ') {
+        e.preventDefault();
+        // For keyboard users, show the hint text so they get the same feedback
+        hint.textContent = 'You chose No — oh dear 😅';
+      }
+    });
 
     /* ---------- YES CLICK ---------- */
     yesBtn.addEventListener("click", () => {
       zone.style.display = "none";
       hint.style.display = "none";     // HIDE THE HINT
       result.style.display = "block";
+      result.setAttribute('aria-hidden', 'false');
       resizeConfettiCanvas();
       fullScreenConfetti();
+      // Move focus to result for screen readers
+      result.querySelector('h2')?.focus?.();
     });
+
+    // Make result heading focusable for screen readers
+    const resultHeading = result.querySelector('h2');
+    if (resultHeading) resultHeading.setAttribute('tabindex', '-1');
   </script>
 </body>
 </html>
