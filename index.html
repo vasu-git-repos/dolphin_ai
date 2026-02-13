@@ -123,8 +123,12 @@
 
     .fireworks {
       width: min(380px, 90vw);
+      max-width: 380px;
       margin: 0 auto;
       display: block;
+      height: auto;
+      aspect-ratio: 380 / 214;
+      object-fit: contain;
     }
 
     @keyframes pop {
@@ -137,6 +141,42 @@
       * { animation: none !important; transition: none !important; }
       #confettiCanvas { display: none !important; }
     }
+    
+    /* Mobile: stack buttons and improve touch sizes */
+    @media (max-width: 520px) {
+      .button-zone {
+        height: auto;
+        display: flex;
+        flex-direction: column;
+        gap: 12px;
+        align-items: center;
+        padding: 12px 0;
+      }
+      button {
+        position: relative;
+        left: auto !important;
+        top: auto !important;
+        transform: none !important;
+        width: 100%;
+        max-width: 360px;
+        font-size: 18px;
+        padding: 14px 18px;
+        box-shadow: 0 8px 20px rgba(0,0,0,.12);
+      }
+      .card { padding: 18px; border-radius: 16px; }
+      .fireworks { width: 100%; height: auto; }
+    }
+
+    /* Shake animation for mobile-friendly 'No' feedback */
+    @keyframes shake {
+      0% { transform: translateX(0); }
+      20% { transform: translateX(-8px); }
+      40% { transform: translateX(8px); }
+      60% { transform: translateX(-6px); }
+      80% { transform: translateX(6px); }
+      100% { transform: translateX(0); }
+    }
+    .shake { animation: shake .6s ease; }
   </style>
 </head>
 
@@ -198,7 +238,7 @@
         class="fireworks"
         src="https://media4.giphy.com/media/v1.Y2lkPTc5MGI3NjExeTZ1NGFoZWF5Z3c2ajgxNXR0MWdkZHE0dTFpcHlibmNuYW9vMjhvOSZlcD12MV9pbnRlcm5hbF9naWZfYnlfaWQmY3Q9Zw/8QbwUh40Hl96yMgvOx/giphy.gif"
         alt="Fireworks"
-        width="380" height="214" loading="lazy"
+        loading="lazy"
       />
     </section>
   </main>
@@ -282,8 +322,9 @@
       growYes();
     }
 
-    // Only enable evasive pointer behavior on fine pointer devices (mouse)
+    // Pointer detection
     const hasFinePointer = window.matchMedia && window.matchMedia('(pointer: fine)').matches;
+    const hasCoarsePointer = window.matchMedia && window.matchMedia('(pointer: coarse)').matches;
     if (hasFinePointer) {
       let pmRaf = null;
       zone.addEventListener('pointermove', e => {
@@ -299,7 +340,16 @@
     }
 
     // Block click but allow keyboard activation when focused (for accessibility)
-    noBtn.addEventListener('click', e => { e.preventDefault(); noBtn.setAttribute('aria-pressed', 'false'); });
+    noBtn.addEventListener('click', e => {
+      e.preventDefault();
+      noBtn.setAttribute('aria-pressed', 'false');
+      if (hasCoarsePointer) {
+        // On touch devices, give playful feedback instead of evasive movement
+        hint.textContent = "On mobile it's hard to run away — you can still say No 😉";
+        noBtn.classList.add('shake');
+        setTimeout(() => noBtn.classList.remove('shake'), 700);
+      }
+    });
     noBtn.addEventListener('keydown', e => {
       if (e.key === 'Enter' || e.key === ' ') {
         e.preventDefault();
